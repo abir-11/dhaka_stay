@@ -11,6 +11,21 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 25s linear infinite;
+}
+
+/* মাউস হোভার করলে স্ক্রলিং থিমে যাবে (Premium UX) */
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
 
 @media (prefers-color-scheme: dark) {
   :root {
