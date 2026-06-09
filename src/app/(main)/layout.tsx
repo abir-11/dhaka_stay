@@ -1,6 +1,6 @@
 
 import "./globals.css";
-import Navbar from './../components/Navbar/page';
+import Navbar from './../../components/Navbar/page';
 import { ReactNode } from 'react';
 import Footer from "@/components/Footer/page";
 
