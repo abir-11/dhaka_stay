@@ -1,21 +1,25 @@
-
 import "./globals.css";
 import Navbar from './../../components/Navbar/page';
 import { ReactNode } from 'react';
 import Footer from "@/components/Footer/page";
+import Providers from "@/components/Providers"; // Providers ইম্পোর্ট করা হলো
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>
-        {/* নেভবার যুক্ত করা হলো */}
-        <Navbar />
+        {/* Providers দিয়ে Navbar এবং বাকি সব কন্টেন্টকে র‍্যাপ করা হলো */}
+        <Providers>
+          {/* নেভবার যুক্ত করা হলো */}
+          <Navbar />
 
-        {/* যেহেতু নেভবারটি fixed, তাই মেইন কন্টেন্টে একটু টপ প্যাডিং (pt-32) দিতে হবে */}
-        <main className="">
-          {children}
-        </main>
-        <Footer/>
+          {/* নেভবারটি fixed থাকায় কন্টেন্ট যেন নিচে না ঢাকা পড়ে তাই pt-28 বা pt-32 দেওয়া ভালো */}
+          <main className="pt-28">
+            {children}
+          </main>
+
+          <Footer />
+        </Providers>
       </body>
     </html>
   );
