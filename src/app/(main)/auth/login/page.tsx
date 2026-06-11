@@ -5,11 +5,13 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { User, Store, ShieldCheck } from "lucide-react"; 
 
 export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<"CUSTOMER" | "VENDOR" | "ADMIN">("CUSTOMER");
   const router = useRouter();
 
   // React Hook Form ইনিশিয়ালাইজেশন
@@ -30,100 +32,145 @@ export default function SignInPage() {
     setAuthError(null);
 
     try {
-      const result = await signIn("credentials", {
-        redirect: false, // আমরা ক্লায়েন্ট সাইডেই রোল চেক করে ম্যানুয়ালি রিডাইরেক্ট করব
-        email: data.email,
-        password: data.password,
-      });
+      // ধাপ ১: জাভা ব্যাকএন্ড থেকে ইমেইল দিয়ে ইউজার খুঁজে বের করা
+      const response = await fetch(`http://localhost:8080/user/email?email=${encodeURIComponent(data.email)}`);
+      
+      if (!response.ok) {
+        setAuthError("User not found with this email.");
+        setIsLoading(false);
+        return;
+      }
 
-      if (result?.error) {
+      const dbUser = await response.json();
+
+      // ধাপ ২: ইমেইল এবং পাসওয়ার্ড ভ্যালিডেশন করা
+      if (!dbUser || dbUser.passwordHash !== data.password) {
         setAuthError("Invalid email or password. Please try again.");
         setIsLoading(false);
         return;
       }
 
-      // লগইন সফল হলে সেশন থেকে রোল চেক করার জন্য একটি ফেচ কল
-      const sessionRes = await fetch("/api/auth/session");
-      const session = await sessionRes.json();
-
-      if (session?.user?.role) {
-        const role = session.user.role;
-        // রোল অনুযায়ী ড্যাশবোর্ডে রিডাইরেক্ট লজিক
-        if (role === "admin") {
-          router.push("/dashboard/admin");
-        } else if (role === "vendor") {
-          router.push("/dashboard/vendor");
-        } else {
-          router.push("/dashboard/customer");
-        }
-        router.refresh();
-      } else {
-        setAuthError("Failed to fetch user role.");
+      // 🚨 ধাপ ৩: রোল ম্যাচিং সিকিউরিটি চেক (ম্যাচ না করলে এখানেই ব্লক করে দেবে)
+      const backendRole = dbUser.role ? dbUser.role.toUpperCase() : "CUSTOMER";
+      
+      if (backendRole !== selectedRole) {
+        setAuthError(`Access Denied! You are registered as a ${backendRole.toLowerCase()}, but trying to log in as a ${selectedRole.toLowerCase()}.`);
         setIsLoading(false);
+        return; // সেশন তৈরি না করেই ফাংশন থেকে বের হয়ে যাবে
       }
+
+      // 🔐 ধাপ ৪: রোল সম্পূর্ণ ম্যাচ করলেই কেবল NextAuth সেশন চালু হবে, তার আগে না!
+      const result = await signIn("credentials", {
+        redirect: false,
+        email: data.email,
+        password: data.password,
+      });
+
+      if (result?.error) {
+        setAuthError("Authentication failed. Connection issue.");
+        setIsLoading(false);
+        return;
+      }
+
+      // ধাপ ৫: সফলভাবে লগইন হওয়ার পর নির্দিষ্ট ড্যাশবোর্ড পেজে পাঠানো
+      if (backendRole === "ADMIN") {
+        router.push("/dashboard/admin");
+      } else if (backendRole === "VENDOR") {
+        router.push("/dashboard/vendor");
+      } else {
+        router.push("/dashboard/customer");
+      }
+      
+      router.refresh();
+
     } catch (error) {
-      setAuthError("Something went wrong. Please try again later.");
+      setAuthError("Could not connect to Java server. Please ensure backend is running.");
       setIsLoading(false);
     }
   };
 
-  // গুগল সাইন-ইন হ্যান্ডলার (নতুন ইউজার হলে ব্যাকএন্ড লজিক অনুযায়ী অটো-রেজিস্টার হবে)
+  // গুগল সাইন-ইন হ্যান্ডলার (গুগল সাইন-ইন ডিফল্টভাবে কাস্টমার ড্যাশবোর্ডে যাবে)
   const handleGoogleSignIn = async () => {
-    await signIn("google", { callbackUrl: "/dashboard" }); 
+    await signIn("google", { callbackUrl: "/dashboard/customer" }); 
   };
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gray-50 p-4 font-sans">
-      <div className="bg-white rounded-3xl shadow-xl max-w-4xl w-full overflow-hidden flex flex-col md:flex-row min-h-[600px]">
+      <div className="bg-white rounded-3xl shadow-xl max-w-4xl w-full overflow-hidden flex flex-col md:flex-row min-h-[650px]">
         
         {/* Left Side: Image Banner */}
         <section className="hidden md:flex flex-col relative w-1/2 p-8">
           <div className="absolute inset-0 z-0">
             <img
-              alt="Dhaka Skyline at Sunset"
+              alt="Dhaka Skyline"
               className="w-full h-full object-cover"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCprJgXEBiqbwH0rFI98cZK5wkaX7MepRJGaKKSH2WdblXtgr2n9OzXTKV7uHu40N1wy6wqJIVuMpNr_fVdnVmpe1Z3KuDA4U9O0ZuwK43WmQGDpEDnv8GxdcL99AzR6urjaHgzJannZCYNd0LQqIPbDuOK_0Ib2l0zF6plCI4xLV1NF_aFcwSUUtTv7CAZEN9kquVWO9uuAFu27SbCcDESmw6W2UF-xM6gkEpsAjac93SB_g-WNXpqVJpEB21zG8JgNkpoWBuiif4"
+              src="https://images.unsplash.com/photo-1596176530529-78163a4f7af2?q=80&w=600&auto=format&fit=crop"
             />
             <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60" />
           </div>
-
           <div className="relative z-10 mt-auto mb-8 max-w-md">
-            <h1 className="text-4xl font-bold text-white mb-3">
-              Welcome Back to DhakaStay
-            </h1>
-            <p className="text-lg text-white/90">
-              Your gateway to premium urban living. Experience the heart of the city
-              with stays that feel like home.
-            </p>
-          </div>
-
-          <div className="relative z-10 flex items-center gap-2">
-            <div className="w-12 h-1 bg-white rounded-full"></div>
-            <div className="w-2 h-1 bg-white/40 rounded-full"></div>
-            <div className="w-2 h-1 bg-white/40 rounded-full"></div>
+            <h1 className="text-4xl font-bold text-white mb-3">Welcome Back to DhakaStay</h1>
+            <p className="text-lg text-white/90">Your gateway to premium urban living.</p>
           </div>
         </section>
 
         {/* Right Side: Form */}
         <div className="md:w-1/2 p-8 md:p-12 flex flex-col justify-between bg-white">
-          <div className="w-full max-w-sm mx-auto my-auto space-y-6">
+          <div className="w-full max-w-sm mx-auto my-auto space-y-5">
             
             {/* Logo & Header */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               <div className="flex items-center gap-1.5 text-[#A30031] font-bold text-xl">
                 <span className="w-3 h-5 bg-[#A30031] rounded-sm transform -skew-x-12 inline-block"></span>
                 DhakaStay
               </div>
               <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Sign In</h2>
-              <p className="text-gray-500 text-sm">Welcome back! Please enter your details.</p>
+              <p className="text-gray-500 text-xs">Choose your correct role to log in.</p>
             </div>
 
-            {/* Social Logins - Only Google Kept */}
+            {/* Role Selection Tabs */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-gray-700">Select Login Role</label>
+              <div className="grid grid-cols-3 gap-2 bg-gray-100 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole("CUSTOMER")}
+                  className={`flex flex-col items-center justify-center py-2 text-xs font-medium rounded-lg transition-all gap-1 cursor-pointer ${
+                    selectedRole === "CUSTOMER" ? "bg-white text-[#A30031] shadow-sm" : "text-gray-500 hover:text-gray-900"
+                  }`}
+                >
+                  <User size={16} />
+                  Customer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole("VENDOR")}
+                  className={`flex flex-col items-center justify-center py-2 text-xs font-medium rounded-lg transition-all gap-1 cursor-pointer ${
+                    selectedRole === "VENDOR" ? "bg-white text-[#A30031] shadow-sm" : "text-gray-500 hover:text-gray-900"
+                  }`}
+                >
+                  <Store size={16} />
+                  Vendor
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole("ADMIN")}
+                  className={`flex flex-col items-center justify-center py-2 text-xs font-medium rounded-lg transition-all gap-1 cursor-pointer ${
+                    selectedRole === "ADMIN" ? "bg-white text-[#A30031] shadow-sm" : "text-gray-500 hover:text-gray-900"
+                  }`}
+                >
+                  <ShieldCheck size={16} />
+                  Admin
+                </button>
+              </div>
+            </div>
+
+            {/* Social Logins */}
             <div>
               <button 
                 type="button" 
                 onClick={handleGoogleSignIn}
-                className="w-full flex items-center justify-center gap-2 border border-gray-200 rounded-xl py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center justify-center gap-2 border border-gray-200 rounded-xl py-2 text-sm font-medium hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-4 h-4" alt="Google" />
                 Sign in with Google
@@ -131,9 +178,9 @@ export default function SignInPage() {
             </div>
 
             {/* Divider */}
-            <div className="relative flex py-2 items-center">
+            <div className="relative flex py-1 items-center">
               <div className="flex-grow border-t border-gray-200"></div>
-              <span className="flex-shrink mx-4 text-gray-400 text-xs uppercase tracking-wider font-medium">Or sign in with email</span>
+              <span className="flex-shrink mx-3 text-gray-400 text-[10px] uppercase tracking-wider font-medium">Or email sign in</span>
               <div className="flex-grow border-t border-gray-200"></div>
             </div>
 
@@ -145,38 +192,28 @@ export default function SignInPage() {
             )}
 
             {/* Input Form */}
-            <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
-              
+            <form className="space-y-3.5" onSubmit={handleSubmit(onSubmit)}>
               {/* Email Input */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-700">Email Address</label>
                 <input 
                   type="email" 
-                  placeholder="Enter your email" 
-                  {...register("email", { 
-                    required: "Email is required", 
-                    pattern: {
-                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                      message: "Invalid email address"
-                    }
-                  })}
-                  className={`w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#A30031]/20 focus:border-[#A30031] transition-all ${
-                    errors.email ? "border-red-500 ring-2 ring-red-500/10" : "border-gray-200"
+                  placeholder="name@example.com" 
+                  {...register("email", { required: "Email is required" })}
+                  className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#A30031]/20 focus:border-[#A30031] ${
+                    errors.email ? "border-red-500" : "border-gray-200"
                   }`}
                 />
-                {errors.email && (
-                  <p className="text-red-500 text-[11px] font-medium">{errors.email.message}</p>
-                )}
               </div>
 
               {/* Password Input */}
-              <div className="space-y-1.5 relative">
+              <div className="space-y-1 relative">
                 <div className="flex justify-between items-center">
                   <label className="text-xs font-semibold text-gray-700">Password</label>
                   <button 
                     type="button" 
                     onClick={() => setShowPassword(!showPassword)}
-                    className="text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
+                    className="text-xs font-medium text-gray-500"
                   >
                     {showPassword ? "Hide" : "Show"}
                   </button>
@@ -185,53 +222,25 @@ export default function SignInPage() {
                   type={showPassword ? "text" : "password"} 
                   placeholder="••••••••" 
                   {...register("password", { required: "Password is required" })}
-                  className={`w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#A30031]/20 focus:border-[#A30031] transition-all ${
-                    errors.password ? "border-red-500 ring-2 ring-red-500/10" : "border-gray-200"
+                  className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#A30031]/20 focus:border-[#A30031] ${
+                    errors.password ? "border-red-500" : "border-gray-200"
                   }`}
                 />
-                {errors.password && (
-                  <p className="text-red-500 text-[11px] font-medium">{errors.password.message}</p>
-                )}
-              </div>
-
-              {/* Remember & Forgot */}
-              <div className="flex items-center justify-between text-xs font-medium">
-                <label className="flex items-center gap-2 text-gray-600 cursor-pointer">
-                  <input type="checkbox" className="rounded text-[#A30031] focus:ring-[#A30031] accent-[#A30031]" />
-                  Remember me
-                </label>
-                <Link href="#" className="text-[#A30031] hover:underline">Forgot Password?</Link>
               </div>
 
               {/* Submit Button */}
               <button 
                 type="submit" 
                 disabled={isLoading}
-                className="w-full bg-[#E61E4D] hover:bg-[#D11A42] text-white font-semibold py-3 rounded-xl transition-colors shadow-md shadow-red-500/10 text-sm flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
+                className="w-full bg-[#E61E4D] hover:bg-[#D11A42] text-white font-semibold py-2.5 rounded-xl text-sm flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
               >
-                {isLoading ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Signing In...
-                  </span>
-                ) : (
-                  "Sign In"
-                )}
+                {isLoading ? "Validating Role..." : `Sign In as ${selectedRole.toLowerCase()}`}
               </button>
             </form>
 
-            <p className="text-center text-sm text-gray-600">
+            <p className="text-center text-xs text-gray-600">
               Don't have an account? <Link href="/auth/signup" className="text-[#A30031] font-semibold hover:underline">Create an account</Link>
             </p>
-          </div>
-
-          {/* Footer Links */}
-          <div className="flex justify-center gap-4 text-xs text-gray-400 pt-6">
-            <Link href="#" className="hover:underline">Privacy Policy</Link>
-            <Link href="#" className="hover:underline">Terms of Service</Link>
           </div>
         </div>
 

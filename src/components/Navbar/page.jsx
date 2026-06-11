@@ -1,23 +1,57 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Marquee from "react-fast-marquee";
 import { Tag, ShieldCheck, Award, Sparkles, Menu, UserCircle, LayoutDashboard, LogOut } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react"; // NextAuth হুক ইম্পোর্ট করা হলো
+import { useSession, signOut } from "next-auth/react";
+
+// স্পষ্ট করে টাইপ ইন্টারফেস ডিফাইন করে দেওয়া হলো যেন কম্পাইলার কোনো ভুল না ধরে
+// BackendUser shape (for reference): { name: string, pictureUrl: string | null }
 
 export default function Navbar() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [userData, setUserData] = useState(null);
+
   const pathname = usePathname();
-  const { data: session, status } = useSession(); // ইউজারের সেশন ডাটা নেওয়া হলো
+  const { data: session, status } = useSession();
 
   const isAuthenticated = status === "authenticated";
 
-  // ইউজারের রোল অনুযায়ী ড্যাশবোর্ড লিংক তৈরি (admin, vendor, customer)
-  const dashboardHref = session?.user?.role 
-    ? `/dashboard/${session.user.role}` 
-    : "/dashboard";
+  // রোল লোয়ারকেস করার সময় যেন ক্রাশ না করে সেজন্য নিরাপদ চেক
+  const userRole = session?.user?.role ? String(session.user.role).toLowerCase() : "customer";
+  const dashboardHref = `/dashboard/${userRole}`;
+
+  useEffect(() => {
+    async function fetchUserProfile() {
+      if (isAuthenticated && session?.user?.email) {
+        try {
+          const response = await fetch(`http://localhost:8080/user/email?email=${encodeURIComponent(session.user.email)}`);
+          if (response.ok) {
+            const dbUser = await response.json();
+
+            // জাভা ব্যাকএন্ডের নাল ভ্যালু হ্যান্ডেল করার নিরাপদ উপায়
+            const firstName = dbUser?.firstName ? String(dbUser.firstName).trim() : "";
+            const lastName = dbUser?.lastName ? String(dbUser.lastName).trim() : "";
+
+            const fullName = firstName && lastName
+              ? `${firstName} ${lastName}`
+              : firstName || session?.user?.name || "User";
+
+            setUserData({
+              name: fullName,
+              pictureUrl: dbUser?.profilePictureUrl ? String(dbUser.profilePictureUrl) : null,
+            });
+          }
+        } catch (error) {
+          console.error("Failed to fetch user profile from Java backend:", error);
+        }
+      }
+    }
+
+    fetchUserProfile();
+  }, [isAuthenticated, session?.user?.email]);
 
   const navItems = [
     { name: "Homes", href: "/" },
@@ -83,15 +117,15 @@ export default function Navbar() {
             <Link
               href="/become-a-host"
               className={`hidden sm:inline-block text-sm font-semibold px-4 py-2.5 rounded-full transition-colors ${pathname === "/become-a-host"
-                  ? "bg-[#A30031] text-white hover:bg-[#8a0029]"
-                  : "text-gray-800 hover:bg-gray-50"
+                ? "bg-[#A30031] text-white hover:bg-[#8a0029]"
+                : "text-gray-800 hover:bg-gray-50"
                 }`}
             >
               Become a host
             </Link>
 
-            {/* Hover System Container: মাউস আনলে বা সরালে ড্রপডাউন কন্ট্রোল হবে */}
-            <div 
+            {/* Hover System Container */}
+            <div
               className="relative py-2"
               onMouseEnter={() => setIsProfileOpen(true)}
               onMouseLeave={() => setIsProfileOpen(false)}
@@ -100,11 +134,17 @@ export default function Navbar() {
                 className="flex items-center gap-3 border border-gray-200 rounded-full p-2 pl-3 hover:shadow-md transition-shadow bg-white cursor-pointer"
               >
                 <Menu size={18} className="text-gray-600" />
-                {isAuthenticated && session?.user?.image ? (
-                  <img 
-                    src={session.user.image} 
-                    alt="Profile" 
-                    className="w-6 h-6 rounded-full object-cover"
+                {isAuthenticated && (userData?.pictureUrl || session?.user?.profilePictureUrl) ? (
+                  <img
+                    src={
+                      userData?.pictureUrl?.startsWith("http")
+                        ? userData.pictureUrl
+                        : userData?.pictureUrl
+                          ? `http://localhost:8080${userData.pictureUrl}`
+                          : session?.user?.profilePictureUrl || ""
+                    }
+                    alt="Profile"
+                    className="w-7 h-7 rounded-full object-cover border border-gray-100"
                   />
                 ) : (
                   <UserCircle size={26} className="text-gray-500" />
@@ -114,16 +154,15 @@ export default function Navbar() {
               {/* Dropdown Menu */}
               {isProfileOpen && (
                 <div className="absolute right-0 top-full w-60 bg-white border border-gray-100 rounded-xl shadow-xl py-2 text-sm text-gray-700 animate-in fade-in slide-in-from-top-2 duration-150">
-                  
+
                   {isAuthenticated ? (
                     <>
-                      {/* লগইন থাকা অবস্থার মেনু */}
                       <div className="font-semibold text-gray-900 px-4 py-2 border-b border-gray-100 truncate">
-                        Hi, {session?.user?.name || "User"}
+                        Hi, {userData?.name || session?.user?.name || "User"}
                       </div>
-                      
-                      <Link 
-                        href={dashboardHref} 
+
+                      <Link
+                        href={dashboardHref}
                         className="flex items-center gap-2 px-4 py-2.5 hover:bg-gray-50 font-medium text-gray-900"
                       >
                         <LayoutDashboard size={16} className="text-gray-500" />
@@ -132,12 +171,11 @@ export default function Navbar() {
                     </>
                   ) : (
                     <>
-                      {/* লগইন না থাকা অবস্থার মেনু */}
                       <div className="font-semibold text-gray-900 px-4 py-2 border-b border-gray-100">
                         Welcome to DhakaStay
                       </div>
-                      <Link 
-                        href="/auth/login" 
+                      <Link
+                        href="/auth/login"
                         className="block px-4 py-2.5 hover:bg-gray-50 font-medium text-gray-900"
                       >
                         Sign up / Log in
@@ -146,18 +184,16 @@ export default function Navbar() {
                   )}
 
                   <hr className="border-gray-100 my-1" />
-                  
-                  {/* রেসপন্সিভ ও সাধারণ লিংকসমূহ */}
+
                   <Link href="/become-a-host" className="block sm:hidden px-4 py-2.5 hover:bg-gray-50">Become a host</Link>
                   <Link href="/homes" className="block md:hidden px-4 py-2.5 hover:bg-gray-50">Homes</Link>
                   <Link href="/help" className="block px-4 py-2.5 hover:bg-gray-50">Help Center</Link>
 
-                  {/* লগইন থাকলে লগআউট বাটন দেখাবে */}
                   {isAuthenticated && (
                     <>
                       <hr className="border-gray-100 my-1" />
                       <button
-                        onClick={() => signOut({ callbackUrl: "/auth/login" })}
+                        onClick={() => signOut({ callbackUrl: "/" })}
                         className="w-full flex items-center gap-2 px-4 py-2.5 text-left text-red-600 font-medium hover:bg-red-50 transition-colors cursor-pointer"
                       >
                         <LogOut size={16} />

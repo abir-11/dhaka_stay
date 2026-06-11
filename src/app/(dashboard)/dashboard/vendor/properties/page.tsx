@@ -1,48 +1,158 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import React from "react";
+import { useSession } from "next-auth/react";
+import Swal from "sweetalert2";
+
+interface Property {
+  id: number;
+  title: string;
+  description: string;
+  propertyType: string;
+  address: string;
+  city: string;
+  zipCode: string;
+  latitude: number | null;
+  longitude: number | null;
+  pricePerNight: number;
+  maxGuests: number;
+  status: string;
+}
 
 export default function MyPropertiesPage() {
-  // Properties mock data matching your Figma design table rows
-  const propertiesData = [
-    {
-      id: "DS-10293",
-      title: "Luxury Gulshan Penthouse",
-      location: "Gulshan 2, Dhaka",
-      price: "৳240.00",
-      occupancy: 88,
-      status: "Active",
-      image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=150",
-    },
-    {
-      id: "DS-44812",
-      title: "Boutique Studio Banani",
-      location: "Banani, Dhaka",
-      price: "৳115.00",
-      occupancy: 42,
-      status: "Pending Approval",
-      image: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=150",
-    },
-    {
-      id: "DS-99201",
-      title: "Riverside Modern Villa",
-      location: "Uttara, Dhaka",
-      price: "৳450.00",
-      occupancy: 0,
-      status: "Suspended",
-      image: "https://images.unsplash.com/photo-1613490493576-7fde63acd811?q=80&w=150",
-    },
-    {
-      id: "DS-32115",
-      title: "Cozy Art Deco Loft",
-      location: "Dhanmondi, Dhaka",
-      price: "৳180.00",
-      occupancy: 75,
-      status: "Active",
-      image: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?q=80&w=150",
-    },
-  ];
+  const { data: session, status } = useSession();
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [vendorId, setVendorId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // আপডেটের মডাল কন্ট্রোল স্টেট
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // ১. ভেন্ডর আইডি এবং প্রোপার্টি ডেটা লোড করা
+  useEffect(() => {
+    async function initPortfolio() {
+      if (status === "authenticated" && session?.user?.email) {
+        try {
+          // প্রথমে ইউজারের ইমেইল দিয়ে ভেন্ডর আইডি নেওয়া
+          const userRes = await fetch(`http://localhost:8080/user/email?email=${encodeURIComponent(session.user.email)}`);
+          if (!userRes.ok) throw new Error("Failed to resolve vendor identity.");
+          
+          const textData = await userRes.text();
+          if (!textData) return;
+          
+          const user = JSON.parse(textData);
+          setVendorId(user.id);
+
+          // ভেন্ডর আইডি দিয়ে প্রোপার্টি গেট করা
+          if (user.id) {
+            const propertyRes = await fetch(`http://localhost:8080/properties/vendor/${user.id}`);
+            if (propertyRes.ok) {
+              const data = await propertyRes.json();
+              setProperties(data);
+            }
+          }
+        } catch (error) {
+          console.error("Initialization error:", error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    }
+    initPortfolio();
+  }, [session, status]);
+
+  // ২. ডিলিট প্রোপার্টি মেথড (DELETE API Connection)
+  const handleDelete = async (id: number) => {
+    Swal.fire({
+      title: "Are you sure?",
+      text: "You won't be able to revert this property post!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ba0036",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, delete it!"
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          const res = await fetch(`http://localhost:8080/deleteProperty/${id}`, {
+            method: "DELETE",
+          });
+
+          if (res.ok) {
+            setProperties((prev) => prev.filter((p) => p.id !== id));
+            Swal.fire({
+              title: "Deleted!",
+              text: "Property has been removed successfully.",
+              icon: "success",
+              confirmButtonColor: "#059669"
+            });
+          } else {
+            throw new Error("Deletion failed on server side.");
+          }
+        } catch (error) {
+          Swal.fire("Error!", "Something went wrong while deleting.", "error");
+        }
+      }
+    });
+  };
+
+  // ৩. আপডেট মডাল ওপেন করার হ্যান্ডলার
+  const openUpdateModal = (property: Property) => {
+    setSelectedProperty({ ...property });
+    setIsUpdateModalOpen(true);
+  };
+
+  // ৪. আপডেট সাবমিট মেথড (PUT API Connection)
+  const handleUpdateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProperty) return;
+
+    setIsUpdating(true);
+    try {
+      const res = await fetch(`http://localhost:8080/updateProperty/${selectedProperty.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(selectedProperty),
+      });
+
+      if (res.ok) {
+        const updatedData = await res.json();
+        // লোকাল স্টেট আপডেট করা যাতে পেজ রিফ্রেশ ছাড়া চেঞ্জ দেখা যায়
+        setProperties((prev) => prev.map((p) => (p.id === updatedData.id ? updatedData : p)));
+        setIsUpdateModalOpen(false);
+        
+        Swal.fire({
+          title: "Updated!",
+          text: "Property configurations updated successfully.",
+          icon: "success",
+          confirmButtonColor: "#059669"
+        });
+      } else {
+        Swal.fire("Failed", "Couldn't update property. Check backend constraints.", "error");
+      }
+    } catch (error) {
+      Swal.fire("Error", "Server is unreachable at the moment.", "error");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-3">
+        <div className="w-10 h-10 border-4 border-rose-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-sm font-medium text-gray-500">Syncing your active portfolio...</p>
+      </div>
+    );
+  }
+
+  // ডাইনামিক স্ট্যাটাস কার্ড বা ইনসাইটের ক্যালকুলেশন
+  const totalPortfolioValue = properties.reduce((acc, curr) => acc + curr.pricePerNight, 0);
 
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto animate-in fade-in duration-300">
@@ -52,18 +162,10 @@ export default function MyPropertiesPage() {
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight">My Properties</h1>
           <p className="text-xs sm:text-sm text-gray-500 font-medium mt-0.5">
-            Manage your portfolio and property performance.
+            Manage your real-time portfolio data and properties connectivity.
           </p>
         </div>
         <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
-          <button className="flex items-center gap-1.5 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition-colors shadow-sm">
-            <span className="material-symbols-outlined text-[18px]">upload</span>
-            Export
-          </button>
-          <button className="flex items-center gap-1.5 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition-colors shadow-sm">
-            <span className="material-symbols-outlined text-[18px]">download</span>
-            Import
-          </button>
           <Link href={"/dashboard/vendor/addProperty"} className="flex items-center gap-1.5 px-4 py-2.5 bg-[#ba0036] hover:bg-[#9a002d] text-white text-xs font-bold rounded-xl transition-colors shadow-sm">
             <span className="material-symbols-outlined text-[18px]">add</span>
             Add New Property
@@ -77,143 +179,239 @@ export default function MyPropertiesPage() {
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
               <tr className="bg-gray-50/75 border-b border-gray-100 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-                <th className="py-4 px-6">Property</th>
+                <th className="py-4 px-6">Property Details</th>
                 <th className="py-4 px-4">Location</th>
                 <th className="py-4 px-4">Price/Night</th>
-                <th className="py-4 px-4 w-[200px]">Occupancy</th>
+                <th className="py-4 px-4">Max Guests</th>
                 <th className="py-4 px-4">Status</th>
-                <th className="py-4 px-6 text-right">Actions</th>
+                <th className="py-4 px-6 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {propertiesData.map((property) => (
-                <tr key={property.id} className="hover:bg-gray-50/50 transition-colors group">
-                  <td className="py-4 px-6 flex items-center gap-4">
-                    <img
-                      src={property.image}
-                      alt={property.title}
-                      className="w-12 h-12 rounded-xl object-cover ring-1 ring-gray-100 shadow-sm shrink-0"
-                    />
-                    <div>
-                      <p className="text-sm font-bold text-gray-900 group-hover:text-[#ba0036] transition-colors">
-                        {property.title}
-                      </p>
-                      <p className="text-[11px] font-semibold text-gray-400 mt-0.5">
-                        ID: {property.id}
-                      </p>
-                    </div>
-                  </td>
-
-                  <td className="py-4 px-4">
-                    <span className="text-xs font-bold text-gray-600">{property.location}</span>
-                  </td>
-
-                  <td className="py-4 px-4">
-                    <span className="text-xs font-black text-gray-900">{property.price}</span>
-                  </td>
-
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            property.occupancy === 0 ? "bg-gray-200" : "bg-[#ba0036]"
-                          }`}
-                          style={{ width: `${property.occupancy}%` }}
-                        />
-                      </div>
-                      <span className="text-xs font-bold text-gray-500 min-w-[28px] text-right">
-                        {property.occupancy}%
-                      </span>
-                    </div>
-                  </td>
-
-                  <td className="py-4 px-4">
-                    <span
-                      className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${
-                        property.status === "Active"
-                          ? "bg-emerald-50 text-emerald-600"
-                          : property.status === "Pending Approval"
-                          ? "bg-amber-50 text-amber-600"
-                          : "bg-rose-50 text-rose-500"
-                      }`}
-                    >
-                      {property.status}
-                    </span>
-                  </td>
-
-                  <td className="py-4 px-6 text-right">
-                    <button className="p-1.5 text-gray-400 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-all">
-                      <span className="material-symbols-outlined text-[20px] flex items-center justify-center font-bold">
-                        more_vert
-                      </span>
-                    </button>
+              {properties.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-sm font-medium text-gray-400">
+                    No listed property found for this vendor account.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                properties.map((property) => (
+                  <tr key={property.id} className="hover:bg-gray-50/50 transition-colors group">
+                    <td className="py-4 px-6 flex items-center gap-4">
+                      {/* ডেটাবেজে যদি ইমেজ রিলেশন ফাঁকা থাকে, সেজন্য একটি জেনেরিক ফ্ল্যাট ব্যাকআপ ইউআরএল */}
+                      <img
+                        src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=150"
+                        alt={property.title}
+                        className="w-12 h-12 rounded-xl object-cover ring-1 ring-gray-100 shadow-sm shrink-0"
+                      />
+                      <div>
+                        <p className="text-sm font-bold text-gray-900 group-hover:text-[#ba0036] transition-colors">
+                          {property.title}
+                        </p>
+                        <p className="text-[11px] font-semibold text-gray-400 mt-0.5">
+                          ID: #{property.id} | <span className="text-[#ba0036] uppercase">{property.propertyType}</span>
+                        </p>
+                      </div>
+                    </td>
+
+                    <td className="py-4 px-4">
+                      <span className="text-xs font-bold text-gray-600">{property.address}, {property.city}</span>
+                    </td>
+
+                    <td className="py-4 px-4">
+                      <span className="text-xs font-black text-gray-900">৳ {property.pricePerNight}</span>
+                    </td>
+
+                    <td className="py-4 px-4">
+                      <span className="text-xs font-bold text-gray-600">{property.maxGuests} Guests max</span>
+                    </td>
+
+                    <td className="py-4 px-4">
+                      <span
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${
+                          property.status === "active"
+                            ? "bg-emerald-50 text-emerald-600"
+                            : "bg-rose-50 text-rose-500"
+                        }`}
+                      >
+                        {property.status}
+                      </span>
+                    </td>
+
+                    <td className="py-4 px-6 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <button 
+                          onClick={() => openUpdateModal(property)}
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                          title="Edit Configuration"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">edit</span>
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(property.id)}
+                          className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                          title="Delete Property"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
-
-        {/* Table Pagination */}
-        <div className="p-4 bg-white border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-medium text-gray-400">
-          <p>Showing 1-4 of 24 properties</p>
-          <div className="flex items-center gap-1.5">
-            <button className="p-1 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-500 transition-colors">
-              <span className="material-symbols-outlined text-[18px] block">chevron_left</span>
-            </button>
-            <button className="w-7 h-7 bg-[#ba0036] text-white rounded-lg font-bold flex items-center justify-center shadow-sm">
-              1
-            </button>
-            <button className="w-7 h-7 hover:bg-gray-50 text-gray-600 rounded-lg font-bold flex items-center justify-center transition-colors">
-              2
-            </button>
-            <button className="w-7 h-7 hover:bg-gray-50 text-gray-600 rounded-lg font-bold flex items-center justify-center transition-colors">
-              3
-            </button>
-            <button className="p-1 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-500 transition-colors">
-              <span className="material-symbols-outlined text-[18px] block">chevron_right</span>
-            </button>
-          </div>
-        </div>
       </div>
 
-      {/* --- BOTTOM INSIGHTS ROW --- */}
+      {/* --- BOTTOM INSIGHTS ROW (DYNAMIC) --- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between gap-6 min-h-[140px]">
           <div className="space-y-1">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Overall Occupancy</p>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Active Listings</p>
             <div className="flex items-baseline gap-2">
-              <h3 className="text-2xl font-black text-gray-900">76.4%</h3>
+              <h3 className="text-2xl font-black text-gray-900">{properties.length} Total</h3>
               <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
-                +2.4% from last month
+                Live on SmartHome
               </span>
             </div>
-          </div>
-          <div className="flex items-end gap-1.5 h-16 pt-2 shrink-0">
-            <div className="w-2.5 bg-rose-100 rounded-t h-[40%]" />
-            <div className="w-2.5 bg-rose-200 rounded-t h-[60%]" />
-            <div className="w-2.5 bg-rose-300 rounded-t h-[50%]" />
-            <div className="w-2.5 bg-[#ba0036] rounded-t h-[90%]" />
-            <div className="w-2.5 bg-[#ba0036] rounded-t h-[75%]" />
           </div>
         </div>
 
         <div className="bg-[#ba0036] p-5 rounded-2xl text-white flex flex-col justify-between shadow-sm min-h-[140px] group relative overflow-hidden">
-          <div className="absolute right-[-20px] bottom-[-20px] w-32 h-32 bg-white/5 rounded-full pointer-events-none" />
           <div className="space-y-0.5">
-            <p className="text-[10px] font-bold text-rose-200 uppercase tracking-widest">Portfolio Value</p>
-            <h3 className="text-3xl font-black tracking-tight">$1.2M+</h3>
-          </div>
-          <div className="flex items-center justify-between bg-black/10 px-3 py-1.5 rounded-xl border border-white/10 mt-2 text-[11px] font-bold">
-            <span className="flex items-center gap-1">
-              <span className="material-symbols-outlined text-[14px]">trending_up</span>
-              High Performance
-            </span>
-            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            <p className="text-[10px] font-bold text-rose-200 uppercase tracking-widest">Combined Base Price Rent</p>
+            <h3 className="text-3xl font-black tracking-tight">৳ {totalPortfolioValue}</h3>
           </div>
         </div>
       </div>
+
+      {/* ==========================================================================
+         TAILWIND MODAL COMPONENT BLOCK (FOR PROPERTY UPDATE ACTION)
+         ========================================================================== */}
+      {isUpdateModalOpen && selectedProperty && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-xl rounded-2xl p-6 shadow-2xl border border-gray-100 max-h-[90vh] overflow-y-auto transform transition-all scale-100">
+            <div className="flex items-center justify-between border-b pb-3 mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Configure Property Setup</h3>
+              <button 
+                onClick={() => setIsUpdateModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100"
+              >
+                <span className="material-symbols-outlined block">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Property Title</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full border p-2.5 text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ba0036]/20 focus:border-[#ba0036]"
+                  value={selectedProperty.title}
+                  onChange={(e) => setSelectedProperty({ ...selectedProperty, title: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Description</label>
+                <textarea
+                  rows={3}
+                  required
+                  className="w-full border p-2.5 text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ba0036]/20 focus:border-[#ba0036]"
+                  value={selectedProperty.description}
+                  onChange={(e) => setSelectedProperty({ ...selectedProperty, description: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Price Per Night (৳)</label>
+                  <input
+                    type="number"
+                    required
+                    className="w-full border p-2.5 text-sm rounded-xl"
+                    value={selectedProperty.pricePerNight}
+                    onChange={(e) => setSelectedProperty({ ...selectedProperty, pricePerNight: parseFloat(e.target.value) })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Max Guests Allowed</label>
+                  <input
+                    type="number"
+                    required
+                    className="w-full border p-2.5 text-sm rounded-xl"
+                    value={selectedProperty.maxGuests}
+                    onChange={(e) => setSelectedProperty({ ...selectedProperty, maxGuests: parseInt(e.target.value) })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Zip Code</label>
+                  <input
+                    type="text"
+                    className="w-full border p-2 bg-white text-xs rounded-lg"
+                    value={selectedProperty.zipCode || ""}
+                    onChange={(e) => setSelectedProperty({ ...selectedProperty, zipCode: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Latitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    className="w-full border p-2 bg-white text-xs rounded-lg"
+                    value={selectedProperty.latitude || ""}
+                    onChange={(e) => setSelectedProperty({ ...selectedProperty, latitude: e.target.value ? parseFloat(e.target.value) : null })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Longitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    className="w-full border p-2 bg-white text-xs rounded-lg"
+                    value={selectedProperty.longitude || ""}
+                    onChange={(e) => setSelectedProperty({ ...selectedProperty, longitude: e.target.value ? parseFloat(e.target.value) : null })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Status Policy</label>
+                <select
+                  className="w-full border p-2.5 text-sm rounded-xl bg-white"
+                  value={selectedProperty.status}
+                  onChange={(e) => setSelectedProperty({ ...selectedProperty, status: e.target.value })}
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t mt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsUpdateModalOpen(false)}
+                  className="px-4 py-2 text-sm font-semibold border rounded-xl text-gray-500 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdating}
+                  className="px-5 py-2 text-sm font-semibold text-white bg-green-600 rounded-xl hover:bg-green-700 disabled:opacity-50"
+                >
+                  {isUpdating ? "Saving..." : "Commit Update ✅"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );
