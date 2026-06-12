@@ -111,6 +111,7 @@ export default function AddPropertyPage() {
 
     setIsSubmitting(true);
 
+    // 👈 এখানেই ছবি সহ সব ডেটা প্রস্তুত করা হচ্ছে
     const finalPayload = {
       vendorId: vendorId,
       title: formData.title,
@@ -123,7 +124,8 @@ export default function AddPropertyPage() {
       longitude: formData.longitude ? parseFloat(formData.longitude) : null,
       pricePerNight: parseFloat(formData.pricePerNight),
       maxGuests: parseInt(formData.maxGuests),
-      status: "active"
+      status: "active",
+      imageUrls: formData.images // 👈 ছবিগুলো JSON-এ যুক্ত হলো
     };
 
     try {
@@ -134,7 +136,7 @@ export default function AddPropertyPage() {
         },
         body: JSON.stringify(finalPayload),
       });
-
+        console.log("📤 Sending Payload to Backend:", finalPayload);
       if (response.ok) {
         Swal.fire({
           icon: "success",

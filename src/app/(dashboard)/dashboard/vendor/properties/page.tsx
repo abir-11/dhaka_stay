@@ -5,6 +5,13 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import Swal from "sweetalert2";
 
+// 👈 ইমেজ অবজেক্টের জন্য ইন্টারফেস
+interface PropertyImage {
+  id: number;
+  imageUrl: string;
+  isPrimary: boolean;
+}
+
 interface Property {
   id: number;
   title: string;
@@ -18,6 +25,7 @@ interface Property {
   pricePerNight: number;
   maxGuests: number;
   status: string;
+  images?: PropertyImage[]; // 👈 আপনার JSON এর সাথে মিল রেখে images অ্যারে যুক্ত করা হলো
 }
 
 export default function MyPropertiesPage() {
@@ -36,7 +44,6 @@ export default function MyPropertiesPage() {
     async function initPortfolio() {
       if (status === "authenticated" && session?.user?.email) {
         try {
-          // প্রথমে ইউজারের ইমেইল দিয়ে ভেন্ডর আইডি নেওয়া
           const userRes = await fetch(`http://localhost:8080/user/email?email=${encodeURIComponent(session.user.email)}`);
           if (!userRes.ok) throw new Error("Failed to resolve vendor identity.");
           
@@ -46,7 +53,6 @@ export default function MyPropertiesPage() {
           const user = JSON.parse(textData);
           setVendorId(user.id);
 
-          // ভেন্ডর আইডি দিয়ে প্রোপার্টি গেট করা
           if (user.id) {
             const propertyRes = await fetch(`http://localhost:8080/properties/vendor/${user.id}`);
             if (propertyRes.ok) {
@@ -64,7 +70,7 @@ export default function MyPropertiesPage() {
     initPortfolio();
   }, [session, status]);
 
-  // ২. ডিলিট প্রোপার্টি মেথড (DELETE API Connection)
+  // ২. ডিলিট প্রোপার্টি মেথড (ফ্ল্যাশ এবং স্টেট সিঙ্ক সহ)
   const handleDelete = async (id: number) => {
     Swal.fire({
       title: "Are you sure?",
@@ -82,6 +88,7 @@ export default function MyPropertiesPage() {
           });
 
           if (res.ok) {
+            // সফলভাবে ডিলিট হলে ক্লায়েন্ট সাইড স্টেট থেকে ফিল্টার করে ফেলা হচ্ছে
             setProperties((prev) => prev.filter((p) => p.id !== id));
             Swal.fire({
               title: "Deleted!",
@@ -93,7 +100,7 @@ export default function MyPropertiesPage() {
             throw new Error("Deletion failed on server side.");
           }
         } catch (error) {
-          Swal.fire("Error!", "Something went wrong while deleting.", "error");
+          Swal.fire("Error!", "Something went wrong while deleting. Check database cascading constraints.", "error");
         }
       }
     });
@@ -105,7 +112,7 @@ export default function MyPropertiesPage() {
     setIsUpdateModalOpen(true);
   };
 
-  // ৪. আপডেট সাবমিট মেথড (PUT API Connection)
+  // ৪. আপডেট সাবমিট মেথড
   const handleUpdateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProperty) return;
@@ -122,7 +129,6 @@ export default function MyPropertiesPage() {
 
       if (res.ok) {
         const updatedData = await res.json();
-        // লোকাল স্টেট আপডেট করা যাতে পেজ রিফ্রেশ ছাড়া চেঞ্জ দেখা যায়
         setProperties((prev) => prev.map((p) => (p.id === updatedData.id ? updatedData : p)));
         setIsUpdateModalOpen(false);
         
@@ -151,7 +157,6 @@ export default function MyPropertiesPage() {
     );
   }
 
-  // ডাইনামিক স্ট্যাটাস কার্ড বা ইনসাইটের ক্যালকুলেশন
   const totalPortfolioValue = properties.reduce((acc, curr) => acc + curr.pricePerNight, 0);
 
   return (
@@ -195,76 +200,83 @@ export default function MyPropertiesPage() {
                   </td>
                 </tr>
               ) : (
-                properties.map((property) => (
-                  <tr key={property.id} className="hover:bg-gray-50/50 transition-colors group">
-                    <td className="py-4 px-6 flex items-center gap-4">
-                      {/* ডেটাবেজে যদি ইমেজ রিলেশন ফাঁকা থাকে, সেজন্য একটি জেনেরিক ফ্ল্যাট ব্যাকআপ ইউআরএল */}
-                      <img
-                        src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=150"
-                        alt={property.title}
-                        className="w-12 h-12 rounded-xl object-cover ring-1 ring-gray-100 shadow-sm shrink-0"
-                      />
-                      <div>
-                        <p className="text-sm font-bold text-gray-900 group-hover:text-[#ba0036] transition-colors">
-                          {property.title}
-                        </p>
-                        <p className="text-[11px] font-semibold text-gray-400 mt-0.5">
-                          ID: #{property.id} | <span className="text-[#ba0036] uppercase">{property.propertyType}</span>
-                        </p>
-                      </div>
-                    </td>
+                properties.map((property) => {
+                  // 👈 JSON থেকে Base64 প্রাইমারি ইমেজটি খুঁজে বের করার লজিক
+                  const primaryImage = property.images?.find(img => img.isPrimary)?.imageUrl 
+                    || property.images?.[0]?.imageUrl 
+                    || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=150"; // কোনো ইমেজ না থাকলে ডিফল্ট ব্যাকআপ
 
-                    <td className="py-4 px-4">
-                      <span className="text-xs font-bold text-gray-600">{property.address}, {property.city}</span>
-                    </td>
+                  return (
+                    <tr key={property.id} className="hover:bg-gray-50/50 transition-colors group">
+                      <td className="py-4 px-6 flex items-center gap-4">
+                        {/* 👈 এখানে এখন ডাটাবেজের আসল ইমেজ লোড হবে */}
+                        <img
+                          src={primaryImage}
+                          alt={property.title}
+                          className="w-12 h-12 rounded-xl object-cover ring-1 ring-gray-100 shadow-sm shrink-0"
+                        />
+                        <div>
+                          <p className="text-sm font-bold text-gray-900 group-hover:text-[#ba0036] transition-colors">
+                            {property.title}
+                          </p>
+                          <p className="text-[11px] font-semibold text-gray-400 mt-0.5">
+                            ID: #{property.id} | <span className="text-[#ba0036] uppercase">{property.propertyType}</span>
+                          </p>
+                        </div>
+                      </td>
 
-                    <td className="py-4 px-4">
-                      <span className="text-xs font-black text-gray-900">৳ {property.pricePerNight}</span>
-                    </td>
+                      <td className="py-4 px-4">
+                        <span className="text-xs font-bold text-gray-600">{property.address}, {property.city}</span>
+                      </td>
 
-                    <td className="py-4 px-4">
-                      <span className="text-xs font-bold text-gray-600">{property.maxGuests} Guests max</span>
-                    </td>
+                      <td className="py-4 px-4">
+                        <span className="text-xs font-black text-gray-900">৳ {property.pricePerNight}</span>
+                      </td>
 
-                    <td className="py-4 px-4">
-                      <span
-                        className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${
-                          property.status === "active"
-                            ? "bg-emerald-50 text-emerald-600"
-                            : "bg-rose-50 text-rose-500"
-                        }`}
-                      >
-                        {property.status}
-                      </span>
-                    </td>
+                      <td className="py-4 px-4">
+                        <span className="text-xs font-bold text-gray-600">{property.maxGuests} Guests max</span>
+                      </td>
 
-                    <td className="py-4 px-6 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button 
-                          onClick={() => openUpdateModal(property)}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                          title="Edit Configuration"
+                      <td className="py-4 px-4">
+                        <span
+                          className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${
+                            property.status === "active"
+                              ? "bg-emerald-50 text-emerald-600"
+                              : "bg-rose-50 text-rose-500"
+                          }`}
                         >
-                          <span className="material-symbols-outlined text-[18px]">edit</span>
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(property.id)}
-                          className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                          title="Delete Property"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">delete</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          {property.status}
+                        </span>
+                      </td>
+
+                      <td className="py-4 px-6 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button 
+                            onClick={() => openUpdateModal(property)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                            title="Edit Configuration"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">edit</span>
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(property.id)}
+                            className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                            title="Delete Property"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* --- BOTTOM INSIGHTS ROW (DYNAMIC) --- */}
+      {/* --- BOTTOM INSIGHTS ROW --- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between gap-6 min-h-[140px]">
           <div className="space-y-1">
@@ -286,9 +298,7 @@ export default function MyPropertiesPage() {
         </div>
       </div>
 
-      {/* ==========================================================================
-         TAILWIND MODAL COMPONENT BLOCK (FOR PROPERTY UPDATE ACTION)
-         ========================================================================== */}
+      {/* --- UPDATE MODAL COMPONENT --- */}
       {isUpdateModalOpen && selectedProperty && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-xl rounded-2xl p-6 shadow-2xl border border-gray-100 max-h-[90vh] overflow-y-auto transform transition-all scale-100">
