@@ -7,13 +7,11 @@ function SuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // ইউআরএল থেকে বুকিং রেফারেন্স কোড নেওয়ার চেষ্টা করবে (যদি থাকে)
   const referenceCode = searchParams.get("ref") || "DS-" + Math.random().toString(36).substr(2, 9).toUpperCase();
 
   return (
     <div className="max-w-xl w-full bg-white border border-gray-200 rounded-3xl p-8 md:p-10 shadow-xl text-center space-y-6">
       
-      {/* 🌟 সুন্দর সাকসেস অ্যানিমেটেড চেকমার্ক আইকন */}
       <div className="flex justify-center">
         <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500 border border-emerald-100 animate-bounce">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-10 h-10">
@@ -22,7 +20,6 @@ function SuccessContent() {
         </div>
       </div>
 
-      {/* 📝 হেডিং মেসেজ */}
       <div className="space-y-2">
         <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight">
           Booking Confirmed!
@@ -32,7 +29,6 @@ function SuccessContent() {
         </p>
       </div>
 
-      {/* 🎟️ বুকিং রেফারেন্স বক্স */}
       <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100 space-y-2">
         <span className="block text-xs font-bold text-gray-400 uppercase tracking-widest">
           Booking Reference Code
@@ -45,12 +41,10 @@ function SuccessContent() {
         </p>
       </div>
 
-      {/* ℹ️ ইনফরমেশন নোটিশ */}
       <p className="text-xs text-gray-500 leading-relaxed max-w-sm mx-auto">
         A confirmation email with the property address, host contact info, and digital invoice has been sent to your registered email address.
       </p>
 
-      {/* 🔗 নেভিগেশন বাটনসমূহ */}
       <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-100">
         <button
           onClick={() => router.push("/dashboard/customer/bookings")}

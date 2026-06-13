@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 
-// 📌 API রেসপন্সের টাইপ
 interface PropertyImage {
   id: number;
   imageUrl: string;
@@ -15,8 +14,8 @@ interface Property {
   name?: string;
   location?: string;
   address?: string;
-  images?: PropertyImage[]; // নতুন ইমেজ অ্যারে
-  imageUrl?: string; // ব্যাকআপ
+  images?: PropertyImage[];
+  imageUrl?: string; 
 }
 
 interface BookingData {
@@ -37,12 +36,10 @@ export default function ProfessionalBookingsPage() {
 
   const filters = ["All Stays", "Upcoming", "Completed", "Cancelled"];
 
-  // 🔄 API কল
   useEffect(() => {
     const fetchBookings = async () => {
       try {
         setIsLoading(true);
-        // আপনার অথেন্টিকেশন সিস্টেম থেকে ইউজারের আইডি নিতে পারেন, আপাতত ১ দেওয়া হলো
         const customerId = localStorage.getItem("userId") || "1"; 
         const response = await fetch(`http://localhost:8080/bookings/customer/${customerId}`);
         
@@ -60,7 +57,6 @@ export default function ProfessionalBookingsPage() {
     fetchBookings();
   }, []);
 
-  // 📅 ডেট এবং রাত ক্যালকুলেশন
   const calculateNights = (checkIn: string, checkOut: string) => {
     if (!checkIn || !checkOut) return 0;
     const start = new Date(checkIn);
@@ -75,7 +71,6 @@ export default function ProfessionalBookingsPage() {
     });
   };
 
-  // 🏷️ স্ট্যাটাস ম্যাপিং এবং কালার কোডিং
   const getStatusDetails = (status: string) => {
     const s = status?.toLowerCase() || "";
     if (s === "pending" || s === "upcoming") return { label: "Upcoming", color: "bg-amber-100 text-amber-800 border-amber-200" };
@@ -85,7 +80,6 @@ export default function ProfessionalBookingsPage() {
     return { label: "Unknown", color: "bg-gray-100 text-gray-800 border-gray-200" };
   };
 
-  // 🔍 ফিল্টারিং লজিক
   const filteredBookings = bookings.filter((booking) => {
     if (activeFilter === "All Stays") return true;
     const { label } = getStatusDetails(booking.status);
@@ -170,7 +164,6 @@ export default function ProfessionalBookingsPage() {
               const propertyLocation = booking.property?.location || booking.property?.address || "Location Unavailable";
               const nights = calculateNights(booking.checkInDate, booking.checkOutDate);
 
-              // 🖼️ Base64 ইমেজ বের করার লজিক
               const propertyImages = booking.property?.images;
               const displayImage = propertyImages?.find((img) => img.isPrimary)?.imageUrl 
                                    || propertyImages?.[0]?.imageUrl 

@@ -12,7 +12,6 @@ export default function AddPropertyPage() {
   const [vendorId, setVendorId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ১. সেশন থেকে ভেন্ডরের আইডি খুঁজে বের করা (আইডি ফিল্ডের অটো-ডিটেকশন ও কনসোল ট্র্যাকিং সহ)
   useEffect(() => {
     async function getVendorId() {
       if (status === "authenticated" && session?.user?.email) {
@@ -28,7 +27,6 @@ export default function AddPropertyPage() {
             if (textData && textData.trim() !== "") {
               const user = JSON.parse(textData);
               
-              // ব্যাকএন্ডের ফিল্ডের নাম 'id', 'vendorId' বা 'userId' যাই হোক না কেন তা খুঁজে নেবে
               const detectedId = user.id || user.vendorId || user.userId;
               
               if (detectedId) {
@@ -97,7 +95,6 @@ export default function AddPropertyPage() {
   const nextStep = () => setStep((prev) => Math.min(prev + 1, 5));
   const prevStep = () => setStep((prev) => Math.max(prev - 1, 1));
 
-  // ৩. ফাইনাল সাবমিশন প্রসেস (POST API)
   const handleFinalSubmit = async () => {
     if (!vendorId) {
       Swal.fire({
@@ -111,7 +108,6 @@ export default function AddPropertyPage() {
 
     setIsSubmitting(true);
 
-    // 👈 এখানেই ছবি সহ সব ডেটা প্রস্তুত করা হচ্ছে
     const finalPayload = {
       vendorId: vendorId,
       title: formData.title,
@@ -125,7 +121,7 @@ export default function AddPropertyPage() {
       pricePerNight: parseFloat(formData.pricePerNight),
       maxGuests: parseInt(formData.maxGuests),
       status: "active",
-      imageUrls: formData.images // 👈 ছবিগুলো JSON-এ যুক্ত হলো
+      imageUrls: formData.images 
     };
 
     try {
@@ -201,9 +197,7 @@ export default function AddPropertyPage() {
   );
 }
 
-/* ==========================================================================
-   STEP 1: BASIC INFORMATION
-   ========================================================================== */
+
 function StepBasicInfo({ formData, setFormData, onNext }: any) {
   return (
     <div className="space-y-5">
@@ -316,9 +310,6 @@ function StepBasicInfo({ formData, setFormData, onNext }: any) {
   );
 }
 
-/* ==========================================================================
-   STEP 2: PRICING & POLICIES
-   ========================================================================== */
 function StepPricing({ formData, setFormData, onNext, onBack }: any) {
   return (
     <div className="space-y-5">
@@ -373,9 +364,7 @@ function StepPricing({ formData, setFormData, onNext, onBack }: any) {
   );
 }
 
-/* ==========================================================================
-   STEP 3: AMENITIES
-   ========================================================================== */
+
 function StepAmenities({ formData, setFormData, onNext, onBack }: any) {
   const toggleAmenity = (key: string) => {
     setFormData({
@@ -412,9 +401,7 @@ function StepAmenities({ formData, setFormData, onNext, onBack }: any) {
   );
 }
 
-/* ==========================================================================
-   STEP 4: IMAGES
-   ========================================================================== */
+
 function StepImages({ formData, setFormData, onNext, onBack }: any) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -504,9 +491,7 @@ function StepImages({ formData, setFormData, onNext, onBack }: any) {
   );
 }
 
-/* ==========================================================================
-   STEP 5: REVIEW
-   ========================================================================== */
+
 function StepReview({ formData, onSubmit, onBack, isSubmitting, vendorId }: any) {
   return (
     <div className="space-y-5">

@@ -4,7 +4,6 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-// Next.js-এর জন্য ডিফল্ট মার্কার আইকন ফিক্স
 const customMarkerIcon = L.icon({
     iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
     shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
@@ -13,7 +12,6 @@ const customMarkerIcon = L.icon({
     popupAnchor: [1, -34],
 });
 
-// আপনার নতুন JSON স্ট্রাকচার অনুযায়ী ইন্টারফেস
 export interface Listing {
     id: number;
     vendorId?: number;
@@ -29,13 +27,11 @@ export interface Listing {
     pricePerNight?: number;
     maxGuests?: number;
     status?: string;
-    // ফিউচারে ইমেজ বা রেটিং আসলে যেন কাজ করে তার জন্য অপশনাল ফিল্ড
     img?: string; 
     rating?: string | number;
 }
 
 export default function MapComponent({ listings }: { listings: Listing[] }) {
-    // ঢাকা সেন্টারের ডিফল্ট কোঅর্ডিনেট
     const defaultCenter: [number, number] = [23.8103, 90.4125]; 
 
     return (

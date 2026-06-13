@@ -4,7 +4,6 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Swal from "sweetalert2";
 
-// ব্যাকঅ্যান্ড থেকে আসা প্রপার্টি ডেটার টাইপ ডেফিনিশন
 interface PropertyData {
   id: number;
   title: string;
@@ -30,27 +29,22 @@ function CheckoutForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // ১. ইউআরএল থেকে আইডি এবং প্রাথমিক ডেট নেওয়া
   const propertyId = searchParams.get("propertyId") || "1";
   const initialCheckIn = searchParams.get("checkIn") || new Date().toISOString().split("T")[0];
   const initialCheckOut = searchParams.get("checkOut") || new Date(Date.now() + 86400000).toISOString().split("T")[0];
   const initialGuests = parseInt(searchParams.get("guests") || "1");
 
-  // ২. স্টেট ম্যানেজমেন্ট
   const [checkIn, setCheckIn] = useState(initialCheckIn);
   const [checkOut, setCheckOut] = useState(initialCheckOut);
   const [guests, setGuests] = useState(initialGuests);
   const [nights, setNights] = useState(1);
 
-  // API থেকে আসা ডেটার স্টেটসমূহ
   const [property, setProperty] = useState<PropertyData | null>(null);
   const [vendorConfig, setVendorConfig] = useState<VendorPaymentConfig | null>(null);
   
-  // লোডিং স্টেটসমূহ
   const [isPropertyLoading, setIsPropertyLoading] = useState(true);
   const [isVendorLoading, setIsVendorLoading] = useState(false);
 
-  // ইউজার ইনফরমেশন স্টেট
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -58,18 +52,15 @@ function CheckoutForm() {
   const [dob, setDob] = useState("");
   const [specialRequests, setSpecialRequests] = useState("");
 
-  // পেমেন্ট স্টেট
   const [paymentMethod, setPaymentMethod] = useState<"card" | "mobile" | "bank">("card");
   const [selectedWallet, setSelectedWallet] = useState<"bkash" | "nagad">("bkash");
   const [accountNumber, setAccountNumber] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 🔄 ইফেক্ট ১: ব্যাকঅ্যান্ড থেকে Property-র প্রাইসিং ও ডিটেইলস ফেচ করা
   useEffect(() => {
     const fetchPropertyData = async () => {
       try {
         setIsPropertyLoading(true);
-        // 🐛 ফিক্সড: এখানে id এর জায়গায় propertyId হবে
         const response = await fetch(`http://localhost:8080/property/${propertyId}`);
         
         if (response.ok) {
@@ -100,11 +91,9 @@ function CheckoutForm() {
     }
   }, [propertyId]);
 
-  // 🔄 ফাংশন: ভেন্ডরের পেমেন্ট মেথড কনফিগারেশন ফেচ করা
   const fetchVendorConfig = async (vId: number) => {
     try {
       setIsVendorLoading(true);
-      // 🐛 ফিক্সড: এখানে vendorId এর জায়গায় vId হবে
       const response = await fetch(`http://localhost:8080/properties/vendor/${vId}`);
       if (response.ok) {
         const textData = await response.text();
@@ -127,7 +116,6 @@ function CheckoutForm() {
     }
   };
 
-  // 🔄 ইফেক্ট ২: রাত (Nights) ক্যালকুলেট করা
   useEffect(() => {
     const date1 = new Date(checkIn);
     const date2 = new Date(checkOut);
@@ -141,7 +129,6 @@ function CheckoutForm() {
     }
   }, [checkIn, checkOut]);
 
-  // 💰 ডাইনামিক প্রাইস হিসাব
   const basePricePerNight = property?.pricePerNight || 0;
   const cleaningFee = property?.cleaningFee || 0;
   const serviceFee = property?.serviceFee || 0; 
@@ -149,7 +136,6 @@ function CheckoutForm() {
   const totalNightlyPrice = basePricePerNight * nights;
   const totalPrice = totalNightlyPrice > 0 ? (totalNightlyPrice + cleaningFee + serviceFee) : 0;
 
-  // 🚀 সাবমিট হ্যান্ডলার (POST)
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     

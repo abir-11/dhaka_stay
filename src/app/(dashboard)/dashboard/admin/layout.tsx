@@ -62,7 +62,6 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     { name: "Dashboard", icon: "dashboard", href: "/dashboard/admin" },
     { name: "User Management", icon: "group", href: "/dashboard/admin/users" },
     { name: "Properties", icon: "apartment", href: "/dashboard/admin/properties" },
-    { name: "Verifications", icon: "verified_user", href: "/dashboard/admin/verify" },
     { name: "Bookings", icon: "book_online", href: "/dashboard/admin/bookings" },
     { name: "Financials", icon: "payments", href: "/dashboard/admin/financials" },
     { name: "Reports", icon: "assessment", href: "/dashboard/admin/reports" },

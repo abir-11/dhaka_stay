@@ -9,7 +9,6 @@ interface PropertyDetailsProps {
 }
 
 export default function PropertyDetailsPage({ params }: PropertyDetailsProps) {
-    // Next.js রুলস অনুযায়ী প্রমিস params আনর‍্যাপ করা
     const resolvedParams = use(params);
     const id = resolvedParams.id;
 
@@ -17,12 +16,10 @@ export default function PropertyDetailsPage({ params }: PropertyDetailsProps) {
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 
-    // ডিফল্ট বুকিং ডেটা (আজকের তারিখ এবং ১ রাতের জন্য পরবর্তী তারিখ)
     const defaultCheckIn = new Date().toISOString().split("T")[0];
     const defaultCheckOut = new Date(Date.now() + 86400000).toISOString().split("T")[0];
     const defaultGuests = 1;
 
-    // আইডি অনুযায়ী ব্যাকএন্ড থেকে নির্দিষ্ট প্রপার্টি ডেটা ফেচ করা
     useEffect(() => {
         if (!id) return;
 
@@ -74,7 +71,6 @@ export default function PropertyDetailsPage({ params }: PropertyDetailsProps) {
         );
     }
 
-    // JSON স্ট্রাকচার অনুযায়ী ডেটা এক্সট্রাকশন
     const basePrice = property.pricePerNight || 0;
     const maxGuests = property.maxGuests || 2;
     const propertyType = property.propertyType || "Rental Unit";
@@ -86,7 +82,6 @@ export default function PropertyDetailsPage({ params }: PropertyDetailsProps) {
 
     const images = property.images?.map((img: any) => img.imageUrl) || [];
 
-    // ডাইনামিক ইমেজ গ্যালারি গ্রিড ফাংশন
     const renderImageGallery = () => {
         const totalImages = images.length;
         if (totalImages === 0) {
@@ -139,15 +134,15 @@ export default function PropertyDetailsPage({ params }: PropertyDetailsProps) {
                 </div>
             </div>
 
-            {/* ইমেজ গ্যালারি */}
+           
             <div className="mb-12">
                 {renderImageGallery()}
             </div>
 
-            {/* কন্টেন্ট এবং বুকিং কার্ড */}
+          
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
                 
-                {/* বাম পাশ: ইনফো */}
+               
                 <div className="lg:col-span-2 space-y-8">
                     <div className="border-b border-gray-200 pb-8 flex justify-between items-center">
                         <div>
@@ -194,7 +189,6 @@ export default function PropertyDetailsPage({ params }: PropertyDetailsProps) {
                     </div>
                 </div>
 
-                {/* ✅ ডান পাশ: ক্লিন বুকিং কার্ড (কোনো ইনপুট ফিল্ড ছাড়া) */}
                 <div className="relative">
                     <div className="sticky top-28 bg-white p-6 rounded-2xl border border-gray-200 shadow-xl shadow-gray-200/50">
                         <div className="flex justify-between items-end mb-6">
@@ -207,7 +201,6 @@ export default function PropertyDetailsPage({ params }: PropertyDetailsProps) {
                             </div>
                         </div>
 
-                        {/* Reserve Button (পাসিং ডিফল্ট কোয়েরি প্যারামিটার) */}
                         <Link 
                             href={`/checkout?propertyId=${id}&title=${encodeURIComponent(property.title)}&checkIn=${defaultCheckIn}&checkOut=${defaultCheckOut}&guests=${defaultGuests}`} 
                             className="flex items-center justify-center w-full bg-[#ba0036] hover:bg-[#a0002d] text-white font-bold text-lg py-3.5 rounded-xl transition-colors mb-4"
@@ -217,7 +210,6 @@ export default function PropertyDetailsPage({ params }: PropertyDetailsProps) {
                         
                         <p className="text-center text-sm text-gray-500 mb-6">You won't be charged yet</p>
 
-                        {/* প্রাইস ব্রেকডাউন শোকেস (১ রাতের বেসিসে) */}
                         <div className="space-y-3 text-gray-700 mb-6 text-sm">
                             <div className="flex justify-between">
                                 <span className="underline">৳{basePrice} x 1 night</span>

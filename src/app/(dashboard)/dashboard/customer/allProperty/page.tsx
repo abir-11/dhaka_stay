@@ -6,7 +6,6 @@ import Link from "next/link";
 import { SlidersHorizontal, Heart, Star, Loader2 } from "lucide-react";
 import type { Listing } from "../map/map";
 
-// ম্যাপ ইম্পোর্ট
 const MapComponent = dynamic<{ listings: Listing[] }>(
     () => import("../map/map"),
     {
@@ -32,14 +31,14 @@ export default function PropertySection() {
                 const response = await fetch("http://localhost:8080/properties");
 
                 if (!response.ok) {
-                    throw new Error("সার্ভার থেকে প্রপার্টি ডেটা লোড করা যায়নি।");
+                    throw new Error("server error");
                 }
 
                 const data = await response.json();
                 setListings(data);
             } catch (err: any) {
                 console.error("Fetch Error:", err);
-                setError(err.message || "ডেটা ফেচ করতে সমস্যা হয়েছে।");
+                setError(err.message || "data fatch problem");
             } finally {
                 setLoading(false);
             }
@@ -58,7 +57,7 @@ export default function PropertySection() {
         return (
             <div className="flex flex-col justify-center items-center min-h-[50vh] gap-3">
                 <Loader2 className="animate-spin text-[#ba0036]" size={40} />
-                <p className="text-gray-500 font-medium">প্রপার্টি লিস্ট লোড হচ্ছে...</p>
+                <p className="text-gray-500 font-medium">Loading...</p>
             </div>
         );
     }
@@ -71,7 +70,7 @@ export default function PropertySection() {
                     onClick={() => window.location.reload()}
                     className="px-4 py-2 bg-gray-200 rounded-lg text-sm font-medium hover:bg-gray-300 transition"
                 >
-                    আবার চেষ্টা করুন
+                    Try Again
                 </button>
             </div>
         );
@@ -80,7 +79,6 @@ export default function PropertySection() {
     return (
         <section className="max-w-[1600px] mx-auto px-6 py-12 flex flex-col lg:flex-row gap-8 bg-[#fbfbfb]">
 
-            {/* বাম পাশ: প্রপার্টি গ্রিড */}
             <div className="w-full lg:w-3/5">
                 <div className="flex justify-between items-end mb-8">
                     <div>
@@ -97,7 +95,6 @@ export default function PropertySection() {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-10">
                         {listings.map((item) => {
-                            // JSON এ ইমেজ না থাকলে আনস্প্ল্যাশ ইমেজ দেখাবে
                             const displayImage = item.img || "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=600";
                             const displayPrice = item.pricePerNight ? `৳${item.pricePerNight}` : "৳0";
                             const location = item.city ? `${item.address}, ${item.city}` : "Unknown Location";
@@ -122,7 +119,6 @@ export default function PropertySection() {
                                             />
                                         </button>
                                         
-                                        {/* প্রপার্টি টাইপ ব্যাজ (যেমন: Villa) */}
                                         {item.propertyType && (
                                             <span className="absolute top-3 left-3 px-2.5 py-1 bg-white/90 backdrop-blur-sm text-gray-900 text-[10px] font-bold uppercase tracking-wider rounded-lg">
                                                 {item.propertyType}
@@ -162,7 +158,6 @@ export default function PropertySection() {
                 )}
             </div>
 
-            {/* ডান পাশ: লাইভ ম্যাপ */}
             <div className="hidden lg:block w-2/5 h-[calc(100vh-120px)] sticky top-24 rounded-3xl overflow-hidden border border-gray-200/60 shadow-md bg-gray-50 z-0">
                 <MapComponent listings={listings} />
             </div>

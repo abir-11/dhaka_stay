@@ -34,12 +34,10 @@ export default function MyPropertiesPage() {
   const [vendorId, setVendorId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // আপডেটের মডাল কন্ট্রোল স্টেট
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // ১. ভেন্ডর আইডি এবং প্রোপার্টি ডেটা লোড করা
   useEffect(() => {
     async function initPortfolio() {
       if (status === "authenticated" && session?.user?.email) {
@@ -70,7 +68,6 @@ export default function MyPropertiesPage() {
     initPortfolio();
   }, [session, status]);
 
-  // ২. ডিলিট প্রোপার্টি মেথড (ফ্ল্যাশ এবং স্টেট সিঙ্ক সহ)
   const handleDelete = async (id: number) => {
     Swal.fire({
       title: "Are you sure?",
@@ -88,7 +85,6 @@ export default function MyPropertiesPage() {
           });
 
           if (res.ok) {
-            // সফলভাবে ডিলিট হলে ক্লায়েন্ট সাইড স্টেট থেকে ফিল্টার করে ফেলা হচ্ছে
             setProperties((prev) => prev.filter((p) => p.id !== id));
             Swal.fire({
               title: "Deleted!",
@@ -106,13 +102,11 @@ export default function MyPropertiesPage() {
     });
   };
 
-  // ৩. আপডেট মডাল ওপেন করার হ্যান্ডলার
   const openUpdateModal = (property: Property) => {
     setSelectedProperty({ ...property });
     setIsUpdateModalOpen(true);
   };
 
-  // ৪. আপডেট সাবমিট মেথড
   const handleUpdateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProperty) return;
@@ -201,7 +195,6 @@ export default function MyPropertiesPage() {
                 </tr>
               ) : (
                 properties.map((property) => {
-                  // 👈 JSON থেকে Base64 প্রাইমারি ইমেজটি খুঁজে বের করার লজিক
                   const primaryImage = property.images?.find(img => img.isPrimary)?.imageUrl 
                     || property.images?.[0]?.imageUrl 
                     || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=150"; // কোনো ইমেজ না থাকলে ডিফল্ট ব্যাকআপ
